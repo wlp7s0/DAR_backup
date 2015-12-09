@@ -168,25 +168,29 @@ function full_backup {
 
 	#READY for back
 	mkdir $LOCAL_BCK_STORAGE/`date +%m-%Y`
-	echo `which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
-	`which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME $COMPRESSION_OPTION $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
+	if [ -e $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.* ]; then
+		echo "Found file with tha same name. Confused. Removing..."
+		rm -f $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.*
+	fi
+	echo `which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME -R $WHAT_TO_BACKUP $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
+	`which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME -R $WHAT_TO_BACKUP $COMPRESSION_OPTION $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
 	if [ $? != 0 ]; then
                 echo "Something went wrong. See errors above" 1>&2
                 exit 1
         fi
 
 	echo "Calculating MD5 sum..."
-	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.dar | cut -d" " -f1)
+	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.1.dar | cut -d" " -f1)
 	echo $MD_SUMM
 	echo "Checking archive with DAR build-in check algorithm"
-	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.dar
-	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.dar
+	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
+	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
 	
 	#Changing Umask back
 	umask $UMASK_OLD
 
 	#Starting rsync
-	rsyn_start `date +%m-%Y`/$FULL_BCK_FILE_NAME.dar $MD_SUMM
+	rsyn_start `date +%m-%Y`/$FULL_BCK_FILE_NAME.1.dar $MD_SUMM
 	
 	clean_old full
 
@@ -236,19 +240,23 @@ function diff_backup {
 	FULL_ARCH_NAME_LS=`echo $LS | cut -d" " -f1`
 	
 	echo "Performing DIFF backup using last found FULL $FULL_ARCH_NAME_LS"
-	echo `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
-	`which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
+	if [ -e $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.* ]; then
+                echo "Found file with tha same name. Confused. Removing..."
+                rm -f $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.*
+        fi
+	echo `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME -R $WHAT_TO_BACKUP $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
+	`which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME -R $WHAT_TO_BACKUP $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
 	if [ $? != 0 ]; then
 		echo "Something went wrong. See errors above" 1>&2
 		exit 1
 	fi
 	
 	echo "Starting backup test"
-	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.dar
-	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.dar
+	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME
+	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME
 
 	echo "Calculating MD5 sum ..."
-	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.dar | cut -d" " -f1)
+	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.1.dar | cut -d" " -f1)
 
         #Changing Umask back
         umask $UMASK_OLD
