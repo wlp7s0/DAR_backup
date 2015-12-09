@@ -16,14 +16,14 @@
 ##################################################
 #options
 WHAT_TO_BACKUP="/"			#path to parent backup dir
-LOCAL_BCK_STORAGE="/home/backup/file/"	#where to put local bacups
+LOCAL_BCK_STORAGE="/home/backup/file_bck"	#where to put local bacups
 REMOTE_BCK_MNT="/mnt/NAS/site"		#NAS mount point. Or where you must put it. Don't store your backups on tha same disk!!
 FULL_BCK_FILE_NAME="full_`date +%m-%Y`"	#To find last full back and perform diff, full backup file name has to has "full" in name
 DIFF_BCK_FILE_NAME="diff_`date +%d-%m-%Y`"
-COMPRESSION_OPTION="xz:9"		#--compression option
-ENCR_KEY="-key bf:aeShae4peiFai6veib"	#encryption for archive. Leave blank to disable. See DAR man for all cipers available
+COMPRESSION_OPTION="gzip:9"		#--compression option
+ENCR_KEY="--key bf:aeShae4peiFai6veib"	#encryption for archive. Leave blank to disable. See DAR man for all cipers available
 EXCL_FILENAME=""			#; separated
-EXCL_PATH="proc;sys;dev/pts;$LOCAL_BCK_STORAGE;mnt;tmp"				#Ralative WHAT_TO_BACK option. ;-separated
+EXCL_PATH="proc;sys;dev/pts;$LOCAL_BCK_STORAGE;mnt;tmp;.snapshots"			#Ralative WHAT_TO_BACK option. ;-separated
 CREATE_EMPTY="-D"			#creates empty dir of EXCL_PATH. To disable - empty
 SLICE="" 				#leave empty to ignore. Sets max file size of a backup file
 NO_COMPRESSION="*.mp3;*.avi;*.mpg;*.mpeg;*.divx;*.wmv;*.wma;*.alaw;*.asf;*.ra;*.ulaw;*.gsm;*.wav;*.gif;*.jpg;*.jpeg;*.png;*.zip;*.tgz;*.gzip;*.bzip;*.gz;*.bzip2;*.rar;*.Z;*.bz2"
@@ -78,6 +78,7 @@ function optcr {
 	if [ "$EXCL_PATH" != "" ]; then
 		EXCL_PATH_DAR=""
 		for item in $(echo $EXCL_PATH | tr ";" "\n"); do 
+			 item=`echo $item | sed 's/^\///'`
 			 EXCL_PATH_DAR="$EXCL_PATH_DAR-P $item "
 		done		
 	else
@@ -168,7 +169,7 @@ function full_backup {
 	#READY for back
 	mkdir $LOCAL_BCK_STORAGE/`date +%m-%Y`
 	echo `which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
-	`which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
+	`which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME $COMPRESSION_OPTION $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
 	if [ $? != 0 ]; then
                 echo "Something went wrong. See errors above" 1>&2
                 exit 1
@@ -235,8 +236,8 @@ function diff_backup {
 	FULL_ARCH_NAME_LS=`echo $LS | cut -d" " -f1`
 	
 	echo "Performing DIFF backup using last found FULL $FULL_ARCH_NAME_LS"
-	echo `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
-	`which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
+	echo `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
+	`which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
 	if [ $? != 0 ]; then
 		echo "Something went wrong. See errors above" 1>&2
 		exit 1
