@@ -1,0 +1,99 @@
+This script was originaly made to use from crontab service on linux-based system.
+
+You need to install rsync and dar utility.
+
+It performs full or differential backup of the provided folder, store it locally and use rsync to copy to remote NAS server (or whatever you use)
+
+On first run you have to start is with "first_run" flag in order to create files and folders for making backup.
+Please make sure that remote store location is mounted and has write access.
+
+This script uses some external utilites: dar, rsync, md5sum, umask, nice, find
+Make sure you have all of them installed.
+
+For full list of DAR options, please visit http://dar.linux.free.fr/doc/man/dar.html
+For recovery files from backup see tutorial http://dar.linux.free.fr/doc/Tutorial.html
+
+Usage example from command line:
+
+$ sudo su
+# cd /path/to/sh/file
+# chmod u+x DAR_backup.sh
+# mount /mnt/NAS 		#your NAS mount point
+# DAR_backup.sh first_run
+# DAR_backup.sh full
+# DAR_backup.sh diff 
+
+This script will create mm-yyyy dir under local path to perform backup when run full backup. 
+All diff files will be stored in this folder too.
+If you have to make more than one full system backup in a month, diff backup will always use your last created full backup.
+
+Full backup must be performed every first day of the month, because diff backups are related to it.
+If full backup of the current month is not found, script checks previous month folder for the latest full backup file.
+If not found - rises error
+If found - touches it to modify creation time, not to be removed on cleanup, and makes symbolic link.
+
+File .mount_check is created when script runs with first_run option.
+This file indicated that mount point is mounted.
+That is why on first run mount point should be mounted.
+
+CRON usage example:
+30 00 1 * * $PATH_TO_SCRIPT/DAR_backup.sh full | mail -s "DAR backup full report" backupmaster@example.com
+30 22 * * * $PATH_TO_SCRIPT/DAR_backup.sh diff | mail -s "DAR backup diff report" backupmaster@example.com
+For understanding cron, please read cron documentation!
+
+OPTION DESCRIPTION
+###brief description can be found in DAR_backup.sh file###
+
+WHAT_TO_BACKUP="/" - this path will be backuped by this script. Please note that I originally created this script to perform full\
+	system backup using root. But you can disable root chacking option below. 
+
+LOCAL_BCK_STORAGE="/home/backup/file/" - this is directory where local backup files will be stored. This path may not be mounted.
+
+REMOTE_BCK_MNT="/mnt/NAS/site" - this path should be always mounted while performing backup. You may want to use /etc/fstab\
+	 file to automatically mount local storage\network nfs storage\network smb drive etc. Or this path can be mounted\
+	 automatically whith this script. For automatic mount with script you need to add mount option on the beginning \
+	 of the file
+
+FULL_BCK_FILE_NAME="full_`date +%m-%Y`" - this is file name of file that will store full backup.\
+	NOTE: this filename should has "full" in it's name. Data is prefed, but not necessary. \
+	if filename would not have unic identificator (like date), full backup make more than one a month will override previous.
+
+DIFF_BCK_FILE_NAME="diff_`date +%d-%m-%Y`" - that is simple. Just filename for differentian backups
+
+COMPRESSION_OPTION="xz:9" - see http://dar.linux.free.fr/doc/man/dar.html for full list of compressin options. Don't leave it blank.
+
+ENCR_KEY="-key bf:aeShae4peiFai6veib" -  see http://dar.linux.free.fr/doc/man/dar.html for full list of encryption options.\
+	Leave blank to disable
+
+EXCL_FILENAME="" - pattern to exclude filename from archives. 
+	Leave blank to disable
+
+EXCL_PATH="proc;sys;dev/pts;$LOCAL_BCK_STORAGE;mnt;tmp" - those path will be excluded from backup.
+	Leave blank to disable
+	Path should be $WHAT_TO_BACKUP variable relative
+	Should be ";" separated
+
+CREATE_EMPTY="-D" - this flag creates empty dirs from EXCL_PATH
+	Leave blank to disable
+
+SLICE="" - sets slice size. For additional info see http://dar.linux.free.fr/doc/man/dar.html
+
+NO_COMPRESSION="*.mp3;*.avi;*.mpg;*.mpeg;*.divx;*.wmv;*.wma;*.alaw;*.asf;*.ra;*.ulaw;*.gsm;*.wav;*.gif;*.jpg;*.jpeg;*.png;*.zip;*.tgz;*.gzip;*.bzip;*.gz;*.bzip2;*.rar;*.Z;*.bz2" - \
+	do not perform copression on files with this extension.
+	Leave blank to disable
+
+ALLOW_AS_USER=0 - allow to run this script as simple user. You can not perform full system backup with this option enabled.
+	0-disable
+	1-enable
+
+NICE_LVL=-5 - changes nece level of running backup script and checking. 0 - system default. See man nice
+
+RSYNC_BANDWIDTH_LIMIT="" - force rsync to copy backup to remote location using max I/O bandwidth. --bwlimit=KBPS\
+	Leave blank to disable
+
+DAYS_TO_STORE_REMOTE="+160" - You should use find format. Will delete all files older than this\
+	 Remote copy must store more or equal to local
+	 Can not be blank!
+
+DAYS_TO_STORE_LOCAL="+45" - You should use find format. Will delete all files older than this from local storage.
+	Can not be blank!

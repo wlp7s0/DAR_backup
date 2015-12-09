@@ -154,15 +154,20 @@ function clean_old {
 	case "$1" in
 	local)
 		echo "Removing files in $LOCAL_BCK_STORAGE with creation time more than $DAYS_TO_STORE_LOCAL days"
-		`which find` $LOCAL_BCK_STORAGE -ctime $DAYS_TO_STORE_LOCAL -exec rm -rf {} \;
+		`which find` $LOCAL_BCK_STORAGE -type f -ctime $DAYS_TO_STORE_LOCAL -exec rm -f {} \;
+		#removes empty dir
+		`which find` $LOCAL_BCK_STORAGE -type d -ctime $DAYS_TO_STORE_LOCAL -exec rmdir {} \;
 	;;
 	full)
 		#local
 		echo "Removing files in $LOCAL_BCK_STORAGE with creation time more than $DAYS_TO_STORE_LOCAL days"
 		`which find` $LOCAL_BCK_STORAGE -ctime $DAYS_TO_STORE_LOCAL -exec rm -rf {} \;
+		#removes empty dir
+                `which find` $LOCAL_BCK_STORAGE -type d -ctime $DAYS_TO_STORE_LOCAL -exec rmdir {} \;
 		#remote
 		echo "Removing files in $REMOTE_BCK_MNT with creatin time more than $DAYS_TO_STORE_REMOTE days"
 		`which find` $REMOTE_BCK_MNT -ctime $DAYS_TO_STORE_REMOTE ! -name ".mount_check" -exec rm -rf {} \;
+		`which find` $REMOTE_BCK_MNT -type d -ctime $DAYS_TO_STORE_REMOTE -exec rmdir {} \;
 	;;
 	esac
 }
@@ -211,11 +216,27 @@ function diff_backup {
                 echo "Umask change success"
         fi
 	if [ ! -e $LOCAL_BCK_STORAGE/`date +%m-%Y` ]; then
-		#rise error because no folder with full backup
-		echo "Can not find $LOCAL_BCK_STORAGE/`date +%m-%Y` folder with full backup file" 1>&2
-		echo "You should make full backup first!" 1>&2
-		echo "Rising ERROR, can't perform diff backup without full one" 1>&2
-		exit 1
+		echo "Can't find working directory with full backup"
+		echo "Trying to use old backup dir"
+		if [ -e $LOCAL_BCK_STORAGE/`date --date "last month" +%m-%Y` ]; then
+			echo "Previous dir exists. Trying to find full backup."
+			cd $LOCAL_BCK_STORAGE/`date --date "last month" +%m-%Y`
+			LS=`ls -t *full*`
+			OLD_FULL=`echo $LS | cut -d" " -f1`
+			if [ OLD_FULL == "" ]; then 
+				echo "Can not find old full back in previous month folder" 1>&2
+				#rise error because no folder with full backup
+				echo "Can not find $LOCAL_BCK_STORAGE/`date +%m-%Y` folder with full backup file" 1>&2
+				echo "You should make full backup first!" 1>&2
+				echo "Rising ERROR, can't perform diff backup without full one" 1>&2
+				exit 1
+			fi
+			#change full backup ctime not to be removed on cleanup
+			touch $LOCAL_BCK_STORAGE/`date --date "last month" +%m-%Y`/$OLD_FULL
+			#creating symbolic link in current folder
+			mkdir $LOCAL_BCK_STORAGE/`date +%m-%Y`
+			ln -s $LOCAL_BCK_STORAGE/`date --date "last month" +%m-%Y`/$OLD_FULL $LOCAL_BCK_STORAGE/`date +%m-%Y`/$OLD_FULL
+		fi
 	fi
 
 	#check and find last full back
