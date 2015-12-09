@@ -1,8 +1,10 @@
 #!/bin/bash
 #This script perform file backup using DAR utility
-#Feel free to modify it for your personal purpouse
+#Feel free to modify it for your personal purpose
 #This script is destributed under GNU GPL license. 
 #Originally written to use from crontab
+#
+#Please run ./DAR_backup.sh first_run to create necessary files and folders!!!!
 #
 #Depends on: dar, rsync, md5sum, umask, nice, find
 #
@@ -10,8 +12,6 @@
 #EX2: 30 22 * * * $PATH_TO_SCRIPT/DAR_backup.sh diff | mail -s "DAR backup diff report" backupmaster@example.com
 #For full list of DAR options, please visit http://dar.linux.free.fr/doc/man/dar.html
 #For recovery files from backup see tutorial http://dar.linux.free.fr/doc/Tutorial.html
-
-#todo: umask; nice
 
 ##################################################
 #options
