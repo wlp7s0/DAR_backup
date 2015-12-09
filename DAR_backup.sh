@@ -59,24 +59,6 @@ if [ "$RSYNC_BIN" = "" ]; then
 	exit 1
 fi
 
-#Checking input arguments
-case "$1" in
-	first_run)
-		mkdir -p $LOCAL_BCK_STORAGE
-		touch $LOCAL_BCK_STORAGE/.mount_check
-	;;
-	full)
-		full_backup
-	;;
-	diff)
-		diff_backup
-	;;
-	*)
-		echo $"Usage: $0 {first_run|full|diff}"
-		exit 1
-	;;
-esac
-
 #DAR option creation function
 function optcr {
 
@@ -86,14 +68,14 @@ function optcr {
 	fi
 
 	#checking slice
-	if [ $SLICE != "" ]; then
-		$SLICE="-s $SLICE"
+	if [ "$SLICE" != "" ]; then
+		SLICE="-s $SLICE"
 	fi
 
-	$COMPRESSION_OPTION="--compression=$COMPRESSION_OPTION"
+	COMPRESSION_OPTION="--compression=$COMPRESSION_OPTION"
 	
 	#making exclusions if filled
-	if [ $EXCL_PATH != "" ]; then
+	if [ "$EXCL_PATH" != "" ]; then
 		EXCL_PATH_DAR=""
 		for item in $(echo $EXCL_PATH | tr ";" "\n"); do 
 			 EXCL_PATH_DAR="$EXCL_PATH_DAR-P $item "
@@ -102,7 +84,7 @@ function optcr {
 		EXCL_PATH_DAR=""
 	fi
 
-	if [ $EXCL_FILENAME != "" ]; then
+	if [ "$EXCL_FILENAME" != "" ]; then
 		EXCL_FILENAME_DAR=""
 		for item in $(echo $EXCL_FILENAME | tr ";" "\n"); do
 			EXCL_FILENAME_DAR="$EXCL_FILENAME_DAR-X \"$item\" "
@@ -111,7 +93,7 @@ function optcr {
 		EXCL_FILENAME_DAR=""
 	fi
 
-	if [ $NO_COMPRESSION != "" ]; then
+	if [ "$NO_COMPRESSION" != "" ]; then
 		NO_COMPRESSION_DAR=""
         	for item in $(echo $NO_COMPRESSION | tr ";" "\n"); do
         	        NO_COMPRESSION_DAR="$NO_COMPRESSION_DAR-Z \"$item\" "
@@ -175,7 +157,7 @@ function clean_old {
 #performing full backup
 function full_backup {
 	optcr
-	$UMASK_OLD=umask
+	UMASK_OLD=umask
 	umask 0077
 	if [ $? != 0 ]; then
 		echo "Umask change failed! Please be careful, your backup can be read!";	
@@ -187,18 +169,23 @@ function full_backup {
 	mkdir $LOCAL_BCK_STORAGE/`date +%m-%Y`
 	echo `which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
 	`which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
+	if [ $? != 0 ]; then
+                echo "Something went wrong. See errors above" 1>&2
+                exit 1
+        fi
+
 	echo "Calculating MD5 sum..."
-	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME | cut -d" " -f1)
+	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.dar | cut -d" " -f1)
 	echo $MD_SUMM
 	echo "Checking archive with DAR build-in check algorithm"
-	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
-	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
+	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.dar
+	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.dar
 	
 	#Changing Umask back
 	umask $UMASK_OLD
 
 	#Starting rsync
-	rsyn_start `date +%m-%Y`/$FULL_BCK_FILE_NAME $MD_SUMM
+	rsyn_start `date +%m-%Y`/$FULL_BCK_FILE_NAME.dar $MD_SUMM
 	
 	clean_old full
 
@@ -208,7 +195,7 @@ function full_backup {
 #preforming diff back
 function diff_backup {
 	optcr
-	$UMASK_OLD=umask
+	UMASK_OLD=umask
         umask 0077
         if [ $? != 0 ]; then
                 echo "Umask change failed! Please be careful, your backup can be read!";         
@@ -223,7 +210,7 @@ function diff_backup {
 			cd $LOCAL_BCK_STORAGE/`date --date "last month" +%m-%Y`
 			LS=`ls -t *full*`
 			OLD_FULL=`echo $LS | cut -d" " -f1`
-			if [ OLD_FULL == "" ]; then 
+			if [ "$OLD_FULL" = "" ]; then 
 				echo "Can not find old full back in previous month folder" 1>&2
 				#rise error because no folder with full backup
 				echo "Can not find $LOCAL_BCK_STORAGE/`date +%m-%Y` folder with full backup file" 1>&2
@@ -236,6 +223,9 @@ function diff_backup {
 			#creating symbolic link in current folder
 			mkdir $LOCAL_BCK_STORAGE/`date +%m-%Y`
 			ln -s $LOCAL_BCK_STORAGE/`date --date "last month" +%m-%Y`/$OLD_FULL $LOCAL_BCK_STORAGE/`date +%m-%Y`/$OLD_FULL
+		else
+			echo "No previous directory exists. Exiting..." 1>&2
+			exit 1
 		fi
 	fi
 
@@ -247,20 +237,45 @@ function diff_backup {
 	echo "Performing DIFF backup using last found FULL $FULL_ARCH_NAME_LS"
 	echo `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
 	`which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
+	if [ $? != 0 ]; then
+		echo "Something went wrong. See errors above" 1>&2
+		exit 1
+	fi
 	
 	echo "Starting backup test"
-	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME
-	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME
+	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.dar
+	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.dar
 
 	echo "Calculating MD5 sum ..."
-	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME | cut -d" " -f1)
+	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.dar | cut -d" " -f1)
 
         #Changing Umask back
         umask $UMASK_OLD
 
-	rsyn_start `date +%m-%Y`/$DIFF_BCK_FILE_NAME $MD_SUMM
+	rsyn_start `date +%m-%Y`/$DIFF_BCK_FILE_NAME.dar $MD_SUMM
 
 	#clearning old
 	clean_old full
 	exit 0
 }
+
+#Checking input arguments
+case "$1" in
+        first_run)
+                echo "Making directory if not exists"
+                mkdir -p $LOCAL_BCK_STORAGE
+                mkdir -p $REMOTE_BCK_MNT
+                echo "Creating $REMOTE_BCK_MNT/.mount_check"
+                touch $REMOTE_BCK_MNT/.mount_check
+        ;;
+        full)
+                full_backup
+        ;;
+        diff)
+                diff_backup
+        ;;
+        *)
+                echo $"Usage: $0 {first_run|full|diff}"
+                exit 1
+        ;;
+esac
