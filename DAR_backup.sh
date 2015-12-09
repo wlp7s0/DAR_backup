@@ -46,15 +46,15 @@ else
 fi
 
 #Checking if DAR binary exists
-$DAR_BIN=`which dar`
-if [ $DAR_BIN == "" ]; then
+DAR_BIN=`which dar`
+if [ "$DAR_BIN" = "" ]; then
 	echo "Can not find DAR binary file in your PATH" 1>&2
 	exit 1
 fi
 
 #Checking rsync
-$RSYNC_BIN=`which rsync`
-if [ $RSYNC_BIN == "" ]; then
+RSYNC_BIN=`which rsync`
+if [ "$RSYNC_BIN" = "" ]; then
 	echo "Please install rsync programm. Can not find binary in your PATH" 1>&2
 	exit 1
 fi
