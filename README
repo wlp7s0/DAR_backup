@@ -4,7 +4,7 @@ You need to install rsync and dar utility.
 
 It performs full or differential backup of the provided folder, store it locally and use rsync to copy to remote NAS server (or whatever you use)
 
-On first run you have to start is with "first_run" flag in order to create files and folders for making backup.
+On first run you have to start it with "first_run" flag in order to create files and folders for making backup.
 Please make sure that remote store location is mounted and has write access.
 
 This script uses some external utilites: dar, rsync, md5sum, umask, nice, find
@@ -19,9 +19,9 @@ $ sudo su
 # cd /path/to/sh/file
 # chmod u+x DAR_backup.sh
 # mount /mnt/NAS 		#your NAS mount point
-# DAR_backup.sh first_run
-# DAR_backup.sh full
-# DAR_backup.sh diff 
+# ./DAR_backup.sh first_run
+# ./DAR_backup.sh full
+# ./DAR_backup.sh diff 
 
 This script will create mm-yyyy dir under local path to perform backup when run full backup. 
 All diff files will be stored in this folder too.
@@ -55,12 +55,13 @@ REMOTE_BCK_MNT="/mnt/NAS/site" - this path should be always mounted while perfor
 	 of the file
 
 FULL_BCK_FILE_NAME="full_`date +%m-%Y`" - this is file name of file that will store full backup.\
-	NOTE: this filename should has "full" in it's name. Data is prefed, but not necessary. \
-	if filename would not have unic identificator (like date), full backup make more than one a month will override previous.
+	NOTE: this filename should has "full" in it's name. Date is prefered, but not necessary. \
+	if filename would not have unic identificator (like date), full backup performing more than once in a month will override previous.
 
-DIFF_BCK_FILE_NAME="diff_`date +%d-%m-%Y`" - that is simple. Just filename for differentian backups
+DIFF_BCK_FILE_NAME="diff_`date +%d-%m-%Y`" - that is simple. Just filename for differential backups
 
-COMPRESSION_OPTION="xz:9" - see http://dar.linux.free.fr/doc/man/dar.html for full list of compressin options. Don't leave it blank.
+COMPRESSION_OPTION="xz:9" - see http://dar.linux.free.fr/doc/man/dar.html for full list of compression options. 
+	Don't leave it blank.
 
 ENCR_KEY="-key bf:aeShae4peiFai6veib" -  see http://dar.linux.free.fr/doc/man/dar.html for full list of encryption options.\
 	Leave blank to disable
@@ -68,7 +69,7 @@ ENCR_KEY="-key bf:aeShae4peiFai6veib" -  see http://dar.linux.free.fr/doc/man/da
 EXCL_FILENAME="" - pattern to exclude filename from archives. 
 	Leave blank to disable
 
-EXCL_PATH="proc;sys;dev/pts;$LOCAL_BCK_STORAGE;mnt;tmp" - those path will be excluded from backup.
+EXCL_PATH="proc;sys;dev/pts;$LOCAL_BCK_STORAGE;mnt;tmp" - those paths will be excluded from backup.
 	Leave blank to disable
 	Path should be $WHAT_TO_BACKUP variable relative
 	Should be ";" separated
@@ -86,7 +87,8 @@ ALLOW_AS_USER=0 - allow to run this script as simple user. You can not perform f
 	0-disable
 	1-enable
 
-NICE_LVL=-5 - changes nece level of running backup script and checking. 0 - system default. See man nice
+NICE_LVL=-5 - changes nice level of running backup script and archive checking. 0 - system default. See man nice
+
 
 RSYNC_BANDWIDTH_LIMIT="" - force rsync to copy backup to remote location using max I/O bandwidth. --bwlimit=KBPS\
 	Leave blank to disable
