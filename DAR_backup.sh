@@ -17,16 +17,16 @@
 #options
 WHAT_TO_BACKUP="/"			#path to parent backup dir
 LOCAL_BCK_STORAGE="/home/backup/file_bck"	#where to put local bacups
-REMOTE_BCK_MNT="/mnt/NAS/site"		#NAS mount point. Or where you must put it. Don't store your backups on tha same disk!!
+REMOTE_BCK_MNT="/mnt/NAS/site"		#NAS mount point. Or where you must put it. Don't store your backups on the same disk!!
 FULL_BCK_FILE_NAME="full_`date +%m-%Y`"	#To find last full back and perform diff, full backup file name has to has "full" in name
 DIFF_BCK_FILE_NAME="diff_`date +%d-%m-%Y`"
 COMPRESSION_OPTION="gzip:9"		#--compression option
 ENCR_KEY="--key bf:aeShae4peiFai6veib"	#encryption for archive. Leave blank to disable. See DAR man for all cipers available
 EXCL_FILENAME=""			#; separated
-EXCL_PATH="proc;sys;dev/pts;$LOCAL_BCK_STORAGE;mnt;tmp;.snapshots"			#Ralative WHAT_TO_BACK option. ;-separated
+EXCL_PATH="proc;sys;dev/pts;$LOCAL_BCK_STORAGE;mnt;tmp;.snapshots;home/backup"		#Ralative WHAT_TO_BACK option. ;-separated
 CREATE_EMPTY="-D"			#creates empty dir of EXCL_PATH. To disable - empty
 SLICE="" 				#leave empty to ignore. Sets max file size of a backup file
-NO_COMPRESSION="*.mp3;*.avi;*.mpg;*.mpeg;*.divx;*.wmv;*.wma;*.alaw;*.asf;*.ra;*.ulaw;*.gsm;*.wav;*.gif;*.jpg;*.jpeg;*.png;*.zip;*.tgz;*.gzip;*.bzip;*.gz;*.bzip2;*.rar;*.Z;*.bz2"
+NO_COMPRESSION="*.mp3;*.avi;*.mpg;*.mpeg;*.divx;*.wmv;*.wma;*.alaw;*.asf;*.ra;*.ulaw;*.gsm;*.wav;*.gif;*.jpg;*.jpeg;*.png;*.zip;*.tgz;*.gzip;*.bzip;*.gz;*.bzip2;*.rar;*.Z;*.bz2;*.xz;*.txz;*.tbz2;*.tbz;*.fwl;*.flac"
 ALLOW_AS_USER=0				#If you want script to be run as user, change to 1
 NICE_LVL=-5				#0-default. (Lover-more CPU time)
 RSYNC_BANDWIDTH_LIMIT=""		#force rsync to copy backup to remote location using max I/O bandwidth. --bwlimit=KBPS
@@ -38,7 +38,7 @@ DAYS_TO_STORE_LOCAL="+45"		#in find format. Will delete all files older than thi
 if [ "$(id -u)" != "0" ]; then
 	echo "This script must be run as root" 1>&2
 	ALLOW_NICE=0
-	if [ $ALLOW_AS_USER == "0" ]; then
+	if [ "$ALLOW_AS_USER" == "0" ]; then
 		exit 1
 	fi
 else
@@ -62,8 +62,10 @@ fi
 #DAR option creation function
 function optcr {
 
+	ENCR_DECR_KEY=`echo $ENCR_KEY | sed 's/--key/-J/'`
+
 	#setting Nice level
-	if [ $ALLOW_NICE == 0 ]; then
+	if [ "$ALLOW_NICE" == "0" ]; then
 		NICE_LVL=0	
 	fi
 
@@ -112,7 +114,7 @@ function rsyn_start {
 		echo "No need to copy backup again." 1>&2
 		echo "Please mount remote partition in $REMOTE_BCK_MNT" 1>&2
 		echo "And start rsync from terminal -> " 1>&2
-		echo $RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a -z $LOCAL_BCK_STORAGE/ REMOTE_BCK_MNT/
+		echo $RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a $LOCAL_BCK_STORAGE/ $REMOTE_BCK_MNT/
 		echo "Initializing local backup cleaner end exit with error code 1"
 		clean_old local
 		exit 1
@@ -121,11 +123,17 @@ function rsyn_start {
 	fi
 	
 	echo "Starting copy backups on remote location"
-	echo RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a -z $LOCAL_BCK_STORAGE/* REMOTE_BCK_MNT/
-	$RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a -z $LOCAL_BCK_STORAGE/* REMOTE_BCK_MNT/
+	echo $RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a $LOCAL_BCK_STORAGE/* $REMOTE_BCK_MNT/
+	$RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a $LOCAL_BCK_STORAGE/* $REMOTE_BCK_MNT/
+	if [ $? != 0 ]; then
+		echo "Rsync copy error. Exiting with removing old files from local dir." 1>&2
+		clean_old local
+		exit 1
+	fi
+		
 	echo "Copy finished. Checking MD5..."
-	MD_CH=`md5sum REMOTE_BCK_MNT/$1  | cut -d" " -f1`
-	if [ $2 != $MD_CH ]; then
+	MD_CH=`md5sum $REMOTE_BCK_MNT/$1  | cut -d" " -f1`
+	if [ "$2" != "$MD_CH" ]; then
 		echo "MD5 checksum mismatch!!!" 1>&2
 	else
 		echo "MD5 check successful"
@@ -158,7 +166,7 @@ function clean_old {
 #performing full backup
 function full_backup {
 	optcr
-	UMASK_OLD=umask
+	UMASK_OLD=`umask`
 	umask 0077
 	if [ $? != 0 ]; then
 		echo "Umask change failed! Please be careful, your backup can be read!";	
@@ -169,11 +177,11 @@ function full_backup {
 	#READY for back
 	mkdir $LOCAL_BCK_STORAGE/`date +%m-%Y`
 	if [ -e $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.* ]; then
-		echo "Found file with tha same name. Confused. Removing..."
+		echo "Found file with the same name. Confused. Removing..."
 		rm -f $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.*
 	fi
-	echo `which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME -R $WHAT_TO_BACKUP $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
-	`which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME -R $WHAT_TO_BACKUP $COMPRESSION_OPTION $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
+	echo `which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME -R $WHAT_TO_BACKUP ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
+	time `which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME -R $WHAT_TO_BACKUP $COMPRESSION_OPTION $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
 	if [ $? != 0 ]; then
                 echo "Something went wrong. See errors above" 1>&2
                 exit 1
@@ -183,8 +191,11 @@ function full_backup {
 	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.1.dar | cut -d" " -f1)
 	echo $MD_SUMM
 	echo "Checking archive with DAR build-in check algorithm"
-	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
-	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
+	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME ENCR_KEY
+	time `which nice` -n $NICE_LVL $DAR_BIN $ENCR_DECR_KEY -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
+	if [ $? != 0 ]; then
+		echo "WARNING: backup check failed!!!" 1>&2
+	fi
 	
 	#Changing Umask back
 	umask $UMASK_OLD
@@ -200,7 +211,7 @@ function full_backup {
 #preforming diff back
 function diff_backup {
 	optcr
-	UMASK_OLD=umask
+	UMASK_OLD=`umask`
         umask 0077
         if [ $? != 0 ]; then
                 echo "Umask change failed! Please be careful, your backup can be read!";         
@@ -237,15 +248,22 @@ function diff_backup {
 	#check and find last full back
 	cd $LOCAL_BCK_STORAGE/`date +%m-%Y`
 	LS=`ls -t *full*`
-	FULL_ARCH_NAME_LS=`echo $LS | cut -d" " -f1`
+	FULL_ARCH_NAME_LS=`echo $LS | cut -d" " -f1 | sed 's/\..*\.dar$//'`
+	if [ "$FULL_ARCH_NAME_LS" == "" ]; then
+		echo "Full archive can not be found. Nothing I can do. Please create full backup first" 1>&2
+		echo "And make sure full backup file has \"full\" in it's name" 1>&2
+		exit 1
+	fi
+	
 	
 	echo "Performing DIFF backup using last found FULL $FULL_ARCH_NAME_LS"
 	if [ -e $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.* ]; then
-                echo "Found file with tha same name. Confused. Removing..."
+                echo "Found file with the same name. Confused. Removing..."
                 rm -f $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.*
         fi
-	echo `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME -R $WHAT_TO_BACKUP $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
-	`which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/DIFF_BCK_FILE_NAME -R $WHAT_TO_BACKUP $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
+	
+	echo `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME -R $WHAT_TO_BACKUP ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
+	time `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME -R $WHAT_TO_BACKUP $ENCR_DECR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
 	if [ $? != 0 ]; then
 		echo "Something went wrong. See errors above" 1>&2
 		exit 1
@@ -253,7 +271,10 @@ function diff_backup {
 	
 	echo "Starting backup test"
 	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME
-	`which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME
+	`which nice` -n $NICE_LVL $DAR_BIN $ENCR_DECR_KEY -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME 
+	if [ $? != 0 ]; then
+                echo "WARNING: backup check failed!!!" 1>&2
+        fi
 
 	echo "Calculating MD5 sum ..."
 	MD_SUMM=$(md5sum $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.1.dar | cut -d" " -f1)
@@ -261,7 +282,7 @@ function diff_backup {
         #Changing Umask back
         umask $UMASK_OLD
 
-	rsyn_start `date +%m-%Y`/$DIFF_BCK_FILE_NAME.dar $MD_SUMM
+	rsyn_start `date +%m-%Y`/$DIFF_BCK_FILE_NAME.1.dar $MD_SUMM
 
 	#clearning old
 	clean_old full
