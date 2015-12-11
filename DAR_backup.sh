@@ -193,7 +193,11 @@ function full_backup {
 	time `which nice` -n $NICE_LVL $DAR_BIN -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME -R $WHAT_TO_BACKUP $COMPRESSION_OPTION $ENCR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR
 	if [ $? != 0 ]; then
                 echo "Something went wrong. See errors above" 1>&2
-                exit 1
+		if [ -e $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME.1.dar ]; then
+			echo "But file exists, do not stop"
+		else
+                	exit 1
+		fi
         fi
 
 	echo "Calculating MD5 sum..."
@@ -275,7 +279,11 @@ function diff_backup {
 	time `which nice` -n $NICE_LVL $DAR_BIN -A $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_ARCH_NAME_LS -c $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME -R $WHAT_TO_BACKUP $ENCR_DECR_KEY $SLICE $CREATE_EMPTY $NO_COMPRESSION_DAR $EXCL_FILENAME_DAR $EXCL_PATH_DAR $COMPRESSION_OPTION
 	if [ $? != 0 ]; then
 		echo "Something went wrong. See errors above" 1>&2
-		exit 1
+		if [ -e $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME.1.dar ]; then
+                        echo "But file exists, do not stop"
+                else
+                        exit 1
+                fi
 	fi
 	
 	echo "Starting backup test"
