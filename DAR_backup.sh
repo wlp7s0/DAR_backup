@@ -32,6 +32,7 @@ NICE_LVL=-5				#0-default. (Lover-more CPU time)
 RSYNC_BANDWIDTH_LIMIT=""		#force rsync to copy backup to remote location using max I/O bandwidth. --bwlimit=KBPS
 DAYS_TO_STORE_REMOTE="+160"		#in find format. Will delete all files older than this; Remote copy must store more or equal to local
 DAYS_TO_STORE_LOCAL="+45"		#in find format. Will delete all files older than this
+MOUNT_OPTIONS="-o sync 192.168.1.150:/nfs /mnt/NAS" #This string goes dirrectly mo mount option. Script will not check if it is mounted or not, it will just try again. If you will see mount error that it is already mounted - that's OK. Leave blank to disable every time mount.
 ##################################################
 
 #Chacking if script can be run as user. If not - exit1
@@ -58,6 +59,14 @@ if [ "$RSYNC_BIN" = "" ]; then
 	echo "Please install rsync programm. Can not find binary in your PATH" 1>&2
 	exit 1
 fi
+
+#mount
+if [ "$MOUNT_OPTIONS" != "" ]; then
+	`which mount` $MOUNT_OPTIONS
+else
+	echo "MOUNT_OPTIONS is blank. Igroring..."
+fi
+
 
 #DAR option creation function
 function optcr {
@@ -114,7 +123,7 @@ function rsyn_start {
 		echo "No need to copy backup again." 1>&2
 		echo "Please mount remote partition in $REMOTE_BCK_MNT" 1>&2
 		echo "And start rsync from terminal -> " 1>&2
-		echo $RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a $LOCAL_BCK_STORAGE/ $REMOTE_BCK_MNT/
+		echo $RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -rltu $LOCAL_BCK_STORAGE/ $REMOTE_BCK_MNT/
 		echo "Initializing local backup cleaner end exit with error code 1"
 		clean_old local
 		exit 1
@@ -123,8 +132,8 @@ function rsyn_start {
 	fi
 	
 	echo "Starting copy backups on remote location"
-	echo $RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a $LOCAL_BCK_STORAGE/* $REMOTE_BCK_MNT/
-	$RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -r -P -h -a $LOCAL_BCK_STORAGE/* $REMOTE_BCK_MNT/
+	echo $RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -rltu $LOCAL_BCK_STORAGE/* $REMOTE_BCK_MNT/
+	$RSYNC_BIN -v $RSYNC_BANDWIDTH_LIMIT -rltu $LOCAL_BCK_STORAGE/* $REMOTE_BCK_MNT/
 	if [ $? != 0 ]; then
 		echo "Rsync copy error. Exiting with removing old files from local dir." 1>&2
 		clean_old local
@@ -192,7 +201,7 @@ function full_backup {
 	echo $MD_SUMM
 	echo "Checking archive with DAR build-in check algorithm"
 	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME ENCR_KEY
-	time `which nice` -n $NICE_LVL $DAR_BIN $ENCR_DECR_KEY -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
+	time `which nice` -n $NICE_LVL $DAR_BIN  $ENCR_KEY -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$FULL_BCK_FILE_NAME
 	if [ $? != 0 ]; then
 		echo "WARNING: backup check failed!!!" 1>&2
 	fi
@@ -271,7 +280,7 @@ function diff_backup {
 	
 	echo "Starting backup test"
 	echo `which nice` -n $NICE_LVL $DAR_BIN -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME
-	`which nice` -n $NICE_LVL $DAR_BIN $ENCR_DECR_KEY -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME 
+	`which nice` -n $NICE_LVL $DAR_BIN $ENCR_KEY -t  $LOCAL_BCK_STORAGE/`date +%m-%Y`/$DIFF_BCK_FILE_NAME 
 	if [ $? != 0 ]; then
                 echo "WARNING: backup check failed!!!" 1>&2
         fi

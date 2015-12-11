@@ -10,6 +10,8 @@ Please make sure that remote store location is mounted and has write access.
 This script uses some external utilites: dar, rsync, md5sum, umask, nice, find
 Make sure you have all of them installed.
 
+Was whitten for RADIOCOM.MD linux-based servers.
+
 For full list of DAR options, please visit http://dar.linux.free.fr/doc/man/dar.html
 For recovery files from backup see tutorial http://dar.linux.free.fr/doc/Tutorial.html
 
@@ -99,3 +101,11 @@ DAYS_TO_STORE_REMOTE="+160" - You should use find format. Will delete all files 
 
 DAYS_TO_STORE_LOCAL="+45" - You should use find format. Will delete all files older than this from local storage.
 	Can not be blank!
+
+MOUNT_OPTIONS="-o sync 192.168.1.150:/nfs /mnt/NAS" - This string goes dirrectly mo mount option.\
+	 Script will not check if it is mounted or not, it will just try to mount again.\
+	 If you will see mount error that it is already mounted - that's OK.\
+	 You can use any option that mount can use. May be you want to "-o remount" every backup\
+	  to be sure that it is mounted.
+	 This will be executed like: mount $MOUNT_OPTIONS
+	 Leave blank to disable every time mount.
