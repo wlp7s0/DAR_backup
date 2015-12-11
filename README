@@ -10,7 +10,7 @@ Please make sure that remote store location is mounted and has write access.
 This script uses some external utilites: dar, rsync, md5sum, umask, nice, find
 Make sure you have all of them installed.
 
-Was whitten for RADIOCOM.MD linux-based servers.
+Was written for RADIOCOM.MD linux-based servers.
 
 For full list of DAR options, please visit http://dar.linux.free.fr/doc/man/dar.html
 For recovery files from backup see tutorial http://dar.linux.free.fr/doc/Tutorial.html
