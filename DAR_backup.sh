@@ -62,6 +62,7 @@ fi
 
 #mount
 if [ "$MOUNT_OPTIONS" != "" ]; then
+	echo "Trying to mount remote partition..."
 	`which mount` $MOUNT_OPTIONS
 else
 	echo "MOUNT_OPTIONS is blank. Igroring..."
